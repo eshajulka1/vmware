@@ -1,0 +1,41 @@
+global:
+  scrape_interval: 15s
+  scrape_duration: 15s
+  scrape_timeout: 10s
+
+alerting:
+  alertmanager:
+    - scrape_configs:
+        - target : [localhost:9093]
+
+rules_files:
+  - /rules/myrules.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - target: [localhost:9090]
+
+  # Scrape config for kubernetes pods.
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+
+    relabel_configs:
+      # node-exporter is scraped in a separate job.
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+        regex: https
+        action: drop
+
+      # For inventory, record whether a pod is ready. This helps distinguish
+      # between: missing from inventory, not ready and failing, ready but
+      # failing, ready and working.
+      # and working.
+      - source_labels: [__meta_kubernetes_pod_ready]
+        action: replace
+        target_label: ready
+
+      # Check for the prometheus.io/scrape=true annotation.
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
